@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invox — Invoice #<%= invoiceNumber %>
+    </title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <div class="container">
+
+        <div class="actions-bar">
+            <button class="btn btn-primary" onclick="window.print()">Print Invoice</button>
+            <a href="/" class="btn btn-outline">← New Invoice</a>
+        </div>
+
+        <div class="invoice-card">
+
+            <div class="inv-header">
+                <div class="inv-brand">
+                    <div class="inv-brand-icon"><img style="width: 50px; height: 50px; border-radius: 15%;"
+                            src="/images/invox.png" alt="Invox"></div>
+                    <div class="inv-brand-text">
+                        <h1>Invox</h1>
+                        <p>Invoice Management System</p>
+                    </div>
+                </div>
+                <div class="inv-title">Invoice</div>
+            </div>
+
+            <div class="inv-meta">
+                <div class="inv-meta-item">Invoice # <strong>
+                        <%= invoiceNumber %>
+                    </strong></div>
+                <div class="inv-meta-item">Date: <strong>
+                        <%= date %>
+                    </strong></div>
+            </div>
+
+            <div class="inv-to">
+                <div class="inv-to-label">Invoice To</div>
+                <div class="inv-to-name">
+                    <%= customerName %>
+                </div>
+                <div class="inv-to-addr">
+                    <%= customerAddress %>
+                </div>
+            </div>
+
+            <div class="inv-items">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Item Description</th>
+                            <th class="right">Price</th>
+                            <th class="right">Qty</th>
+                            <th class="right">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% items.forEach((item, index)=> { %>
+                            <tr>
+                                <td class="sn">
+                                    <%= index + 1 %>
+                                </td>
+                                <td>
+                                    <%= item.name %>
+                                </td>
+                                <td class="right">₹<%= item.price.toFixed(2) %>
+                                </td>
+                                <td class="center">
+                                    <%= item.quantity %>
+                                </td>
+                                <td class="right">₹<%= item.total.toFixed(2) %>
+                                </td>
+                            </tr>
+                            <% }) %>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="inv-totals">
+                <div class="inv-payment">
+                    <h3>Payment Method</h3>
+                    <p>
+                        <% const methodLabels={ card: 'Credit/Debit Card' , upi: 'UPI' , bank: 'Bank Transfer' ,
+                            paypal: 'PayPal' , cash: 'Cash' }; %>
+                            <strong>Method:</strong>
+                            <%= methodLabels[paymentMethod] || paymentMethod %><br>
+                                <% if (paymentMethod==='card' ) { %>
+                                    Card Number: <%= cardNumber %><br>
+                                        Name on Card: <%= cardName %><br>
+                                            <% } else if (paymentMethod==='upi' ) { %>
+                                                UPI ID: <%= upiId %><br>
+                                                    Name: <%= upiName %><br>
+                                                        <% } else if (paymentMethod==='bank' ) { %>
+                                                            Account #: <%= accountNumber %><br>
+                                                                Name: <%= accountName %><br>
+                                                                    IFSC: <%= ifsc %><br>
+                                                                        <% } else if (paymentMethod==='paypal' ) { %>
+                                                                            PayPal Email: <%= paypalEmail %><br>
+                                                                                <% } else if (paymentMethod==='cash' ) {
+                                                                                    %>
+                                                                                    Payer Name: <%= cashName %><br>
+                                                                                        <% } %>
+                    </p>
+                </div>
+                <div class="inv-summary">
+                    <div class="inv-summary-row">
+                        <span>Subtotal</span>
+                        <span>₹<%= subtotal %></span>
+                    </div>
+                    <div class="inv-summary-row">
+                        <span>Tax (18%)</span>
+                        <span>₹<%= tax %></span>
+                    </div>
+                    <div class="inv-summary-row total-row">
+                        <span>Total</span>
+                        <span>₹<%= total %></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="inv-terms">
+                <h3>Terms & Conditions</h3>
+                <p>Payment is due within 30 days. A late fee of 1.5% applies to overdue payments.</p>
+            </div>
+
+            <div class="inv-footer">Thank you for your business</div>
+
+        </div>
+    </div>
+</body>
+
+</html>

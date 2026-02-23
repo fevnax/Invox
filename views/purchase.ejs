@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invox — Create Invoice</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+  <div class="container">
+
+    <div class="page-header">
+      <div class="brand">Invox</div>
+      <p class="tagline">Invoice Management System</p>
+    </div>
+
+    <form id="invoiceForm" action="/invoice" method="POST">
+
+      <div class="card">
+        <h2 class="card-title"><span class="icon">👤</span> Customer Details</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Customer Name <span class="req">*</span></label>
+            <input type="text" name="customerName" required placeholder="John Doe">
+          </div>
+          <div class="form-group">
+            <label>Customer Address <span class="req">*</span></label>
+            <input type="text" name="customerAddress" required placeholder="123 Main St, City">
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title"><span class="icon">📦</span> Invoice Items</h2>
+        <div class="items-table-wrap">
+          <table class="items-table" id="itemsTable">
+            <thead>
+              <tr>
+                <th class="col-sn">#</th>
+                <th class="col-name">Item Name</th>
+                <th class="col-price">Price (₹)</th>
+                <th class="col-qty">Qty</th>
+                <th class="col-total">Total</th>
+                <th class="col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="itemsBody"></tbody>
+          </table>
+        </div>
+
+        <div class="table-footer">
+          <button type="button" class="btn btn-outline" id="addItemBtn">＋ Add Item</button>
+          <div class="live-total">Subtotal: <strong id="liveSubtotal">₹0.00</strong></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title"><span class="icon">💳</span> Payment Method</h2>
+        <div class="form-grid">
+          <div class="form-group full">
+            <label for="payment-method">Select Payment Method <span class="req">*</span></label>
+            <select id="payment-method" name="paymentMethod" required
+              style="width:100%;background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius-sm);padding:.65rem .85rem;color:var(--text);font-size:.925rem;">
+              <option value="card">Credit/Debit Card</option>
+              <option value="upi">UPI</option>
+              <option value="bank">Bank Transfer</option>
+              <option value="paypal">PayPal</option>
+              <option value="cash">Cash</option>
+            </select>
+          </div>
+          <div id="payment-fields" class="form-group full" style="margin-top:1rem;"></div>
+        </div>
+        <script>
+          const paymentFields = document.getElementById('payment-fields');
+          const paymentMethod = document.getElementById('payment-method');
+          function renderFields(method) {
+            let html = '';
+            if (method === 'card') {
+              html = `
+                <label>Card Number <span class='req'>*</span></label>
+                <input type='text' name='cardNumber' required placeholder='Enter card number' style='width:100%;'>
+                <label>Name on Card <span class='req'>*</span></label>
+                <input type='text' name='cardName' required placeholder='Enter name'>
+              `;
+            } else if (method === 'upi') {
+              html = `
+                <label>UPI ID <span class='req'>*</span></label>
+                <input type='text' name='upiId' required placeholder='Enter UPI ID' style='width:100%;'>
+                <label>Name <span class='req'>*</span></label>
+                <input type='text' name='upiName' required placeholder='Enter name'>
+              `;
+            } else if (method === 'bank') {
+              html = `
+                <label>Account Number <span class='req'>*</span></label>
+                <input type='text' name='accountNumber' required placeholder='Enter account number' style='width:100%;'>
+                <label>Name <span class='req'>*</span></label>
+                <input type='text' name='accountName' required placeholder='Enter name'>
+                <label>IFSC Code <span class='req'>*</span></label>
+                <input type='text' name='ifsc' required placeholder='Enter IFSC code'>
+              `;
+            } else if (method === 'paypal') {
+              html = `
+                <label>PayPal Email <span class='req'>*</span></label>
+                <input type='email' name='paypalEmail' required placeholder='Enter PayPal email' style='width:100%;'>
+              `;
+            } else if (method === 'cash') {
+              html = `
+                <label>Payer Name <span class='req'>*</span></label>
+                <input type='text' name='cashName' required placeholder='Enter payer name' style='width:100%;'>
+              `;
+            }
+            paymentFields.innerHTML = html;
+          }
+          paymentMethod.addEventListener('change', function (e) {
+            renderFields(e.target.value);
+          });
+          renderFields(paymentMethod.value);
+        </script>
+      </div>
+
+      <input type="hidden" name="items" id="itemsJSON">
+
+      <div class="submit-area">
+        <button type="submit" class="btn btn-success">Generate Invoice →</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const itemsBody = document.getElementById('itemsBody');
+    const addBtn = document.getElementById('addItemBtn');
+    const liveTotal = document.getElementById('liveSubtotal');
+    const form = document.getElementById('invoiceForm');
+    const itemsJSON = document.getElementById('itemsJSON');
+
+    let items = [];
+    let editingIndex = -1;
+
+    function render() {
+      itemsBody.innerHTML = '';
+      let subtotal = 0;
+
+      items.forEach((item, i) => {
+        const total = item.price * item.qty;
+        subtotal += total;
+        const tr = document.createElement('tr');
+
+        if (editingIndex === i) {
+          tr.innerHTML = `
+            <td class="col-sn">${i + 1}</td>
+            <td class="col-name"><input type="text" id="editName" value="${escapeHtml(item.name)}"></td>
+            <td class="col-price"><input type="number" step="0.01" min="0" id="editPrice" value="${item.price}"></td>
+            <td class="col-qty"><input type="number" min="1" id="editQty" value="${item.qty}"></td>
+            <td class="col-total"><input type="text" readonly value="₹${total.toFixed(2)}"></td>
+            <td class="col-actions">
+              <button type="button" class="btn-icon save" title="Save" onclick="saveEdit(${i})">✓</button>
+              <button type="button" class="btn-icon del" title="Cancel" onclick="cancelEdit()">✕</button>
+            </td>`;
+        } else {
+          tr.innerHTML = `
+            <td class="col-sn">${i + 1}</td>
+            <td class="col-name"><input type="text" readonly value="${escapeHtml(item.name)}"></td>
+            <td class="col-price"><input type="text" readonly value="₹${item.price.toFixed(2)}"></td>
+            <td class="col-qty"><input type="text" readonly value="${item.qty}"></td>
+            <td class="col-total"><input type="text" readonly value="₹${total.toFixed(2)}"></td>
+            <td class="col-actions">
+              <button type="button" class="btn-icon edit" title="Edit" onclick="startEdit(${i})">✎</button>
+              <button type="button" class="btn-icon del" title="Delete" onclick="deleteItem(${i})">🗑</button>
+            </td>`;
+        }
+        itemsBody.appendChild(tr);
+      });
+
+      liveTotal.textContent = `₹${subtotal.toFixed(2)}`;
+    }
+
+    function addNewRow() {
+      if (editingIndex !== -1) saveEdit(editingIndex);
+      items.push({ name: '', price: 0, qty: 1 });
+      editingIndex = items.length - 1;
+      render();
+      const nameInput = document.getElementById('editName');
+      if (nameInput) nameInput.focus();
+    }
+
+    function startEdit(i) {
+      editingIndex = i;
+      render();
+      const nameInput = document.getElementById('editName');
+      if (nameInput) nameInput.focus();
+    }
+
+    function saveEdit(i) {
+      const name = document.getElementById('editName').value.trim();
+      const price = parseFloat(document.getElementById('editPrice').value) || 0;
+      const qty = parseInt(document.getElementById('editQty').value) || 1;
+      if (!name) {
+        items.splice(i, 1);
+      } else {
+        items[i] = { name, price, qty };
+      }
+      editingIndex = -1;
+      render();
+    }
+
+    function cancelEdit() {
+      if (items[editingIndex] && !items[editingIndex].name) {
+        items.splice(editingIndex, 1);
+      }
+      editingIndex = -1;
+      render();
+    }
+
+    function deleteItem(i) {
+      items.splice(i, 1);
+      if (editingIndex === i) editingIndex = -1;
+      else if (editingIndex > i) editingIndex--;
+      render();
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    addBtn.addEventListener('click', addNewRow);
+
+    form.addEventListener('submit', (e) => {
+      if (editingIndex !== -1) {
+        const name = document.getElementById('editName')?.value.trim();
+        const price = parseFloat(document.getElementById('editPrice')?.value) || 0;
+        const qty = parseInt(document.getElementById('editQty')?.value) || 1;
+        if (name) items[editingIndex] = { name, price, qty };
+        else items.splice(editingIndex, 1);
+        editingIndex = -1;
+      }
+      if (items.length === 0) {
+        e.preventDefault();
+        alert('Please add at least one item.');
+        return;
+      }
+      itemsJSON.value = JSON.stringify(items);
+    });
+
+    addNewRow();
+  </script>
+</body>
+
+</html>
