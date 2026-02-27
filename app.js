@@ -82,6 +82,14 @@ app.post("/invoice", (req, res) => {
   });
 });
 
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    message: 'Your API is running',
+    timestamp: new Date().toISOString()
+  });
+});
+
 app.listen(port, () => {
   console.log(`Server is running on port: http://localhost:${port}`);
 });
